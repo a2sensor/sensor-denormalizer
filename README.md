@@ -1,2 +1,2 @@
-# sensor-denormalizer
-A denormalizer for a2sensor/sensor-collect
+# sensor-collect
+A Python web application to collect metrics from sensors
