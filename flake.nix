@@ -24,7 +24,7 @@
     pythoneda-shared-pythoneda-banner = {
       inputs.flake-utils.follows = "flake-utils";
       inputs.nixos.follows = "nixos";
-      url = "github:pythoneda-shared-pythoneda/banner/0.0.6";
+      url = "github:pythoneda-shared-pythoneda/banner/0.0.7";
     };
     pythoneda-shared-pythoneda-domain = {
       inputs.flake-utils.follows = "flake-utils";
@@ -32,7 +32,7 @@
       inputs.pythoneda-shared-pythoneda-banner.follows =
         "pythoneda-shared-pythoneda-banner";
       url =
-        "github:pythoneda-shared-pythoneda/domain-artifact/0.0.6?dir=domain";
+        "github:pythoneda-shared-pythoneda/domain-artifact/0.0.8?dir=domain";
     };
   };
   outputs = inputs:
@@ -47,7 +47,7 @@
       let
         org = "a2sensor";
         repo = "sensor-denormalizer";
-        version = "0.0.1";
+        version = "0.0.3";
         pname = "${org}-${repo}";
         pkgs = import nixos { inherit system; };
         description = "A Python denormalizer for a2sensor/sensor-denormalizer";
