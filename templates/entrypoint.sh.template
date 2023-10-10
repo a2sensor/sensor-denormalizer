@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+# @SOURCE@
+#
+# GNU GENERAL PUBLIC LICENSE
+# Version 3, 29 June 2007
+#
+# Copyright (C) 2023-today @maintainers@ @homepage@
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+echo "Running A2Sensor Sensor-Denormalizer @version@"
+export _PYTHONEDA_PYTHON="@python@/bin/python"
+export PYTHONPATH="@PYTHONPATH@"
+_PYTHONEDA_DEPS="$(echo "$PYTHONPATH" | sed 's : \n g' | wc -l)"
+export _PYTHONEDA_DEPS
+_PYTHONEDA_PYTHONEDA_DEPS="$(echo "$PYTHONPATH" | sed 's : \n g' | grep -c 'pythoneda')"
+export _PYTHONEDA_PYTHONEDA_DEPS
+@BANNER@ -o "@org@" -r "@repo@" -t "@version@" -s "@pescio_space@" -a "@arch_role@" -l "@hexagonal_layer@" -p "@python_version@" -D "$_PYTHONEDA_DEPS" -d "$_PYTHONEDA_PYTHONEDA_DEPS" -n "@nixpkgs_release@"
+
+$_PYTHONEDA_PYTHON @ENTRYPOINT@ $@

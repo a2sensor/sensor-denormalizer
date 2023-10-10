@@ -209,7 +209,7 @@ def parse_cli():
     parser.add_argument('-r', '--refresh-interval', required=False, default=1, help='The refresh interval, in minutes')
     parser.add_argument('-o', '--output-file', required=True, help='The output file')
     args, unknown_args = parser.parse_known_args()
-    return Denormalizer(args.data_folder, args.refresh_interval, args.output_file)
+    return Denormalizer(args.data_folder, int(args.refresh_interval), args.output_file)
 
 if __name__ == "__main__":
     denormalizer = parse_cli()

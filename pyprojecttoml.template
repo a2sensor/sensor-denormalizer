@@ -28,6 +28,7 @@ packages = [{include = "@package@"}]
 [tool.poetry.dependencies]
 apscheduler = "^@apscheduler@"
 python = "^@pythonMajorMinorVersion@"
+pythoneda-shared-pythoneda-banner = "^@pythonedaSharedPythonedaBanner@"
 
 [build-system]
 requires = ["poetry-core"]
