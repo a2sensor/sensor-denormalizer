@@ -22,6 +22,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import argparse
 from datetime import datetime
 import json
+import logging
 import os
 import threading
 from typing import Dict, List
@@ -172,14 +173,16 @@ class Denormalizer:
             some_data = True
             data['id'] = sensorId
             measure = self.latest_measure(sensorId)
-            if measure.get('name', None) is not None:
-                data['name'] = measure['name']
+            name = measure.get('name', None)
+            value = measure.get('value', {})
+            status = value.get('status', None)
+            last_modified = value.get('timestamp', None)
+            if name is not None:
+                data['name'] = name
                 del measure['name']
-            if measure.get('last-modified', None) is not None:
-                data['last-modified'] = measure['last-modified']
-                del measure['last-modified']
-            if measure.get('value', None) is not None:
-                data['value'] = measure['value']
+            if status is not None and last_modified is not None:
+                data['value'] = value
+                del measure['value']
             else:
                 data['value'] = self.latest_measure(sensorId)
             sensors_data.append(data)
@@ -196,7 +199,9 @@ class Denormalizer:
         try:
             stop_event.wait()
         except KeyboardInterrupt:
-            print("Shutting down gracefully...")
+            logging.getLogger("a2sensor").warning("Shutting down gracefully...")
+        finally:
+            self.scheduler.shutdown()
 
 def parse_cli():
     """

@@ -20,4 +20,4 @@ _PYTHONEDA_PYTHONEDA_DEPS="$(echo "$PYTHONPATH" | sed 's : \n g' | grep -c 'pyth
 export _PYTHONEDA_PYTHONEDA_DEPS
 @BANNER@ -o "@org@" -r "@repo@" -t "@version@" -s "@pescio_space@" -a "@arch_role@" -l "@hexagonal_layer@" -p "@python_version@" -D "$_PYTHONEDA_DEPS" -d "$_PYTHONEDA_PYTHONEDA_DEPS" -n "@nixpkgs_release@"
 
-$_PYTHONEDA_PYTHON @ENTRYPOINT@ $@
+$_PYTHONEDA_PYTHON @ENTRYPOINT@ "$@"

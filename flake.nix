@@ -47,7 +47,7 @@
       let
         org = "a2sensor";
         repo = "sensor-denormalizer";
-        version = "0.0.4";
+        version = "0.0.5";
         pname = "${org}-${repo}";
         pkgs = import nixos { inherit system; };
         description = "A Python denormalizer for a2sensor/sensor-denormalizer";
@@ -147,7 +147,7 @@
               substituteInPlace /build/$sourceRoot/entrypoint.sh \
                 --replace "@SOURCE@" "$out/bin/${entrypoint}.sh" \
                 --replace "@PYTHONPATH@" "$PYTHONPATH" \
-                --replace "@ENTRYPOINT@" "$out/lib/python${pythonMajorMinorVersion}/site-packages/${package}/${entrypoint}.py" \
+                --replace "@ENTRYPOINT@" "-m ${pythonpackage}.${entrypoint}" \
                 --replace "@BANNER@" "$out/bin/banner.sh"
             '';
 
