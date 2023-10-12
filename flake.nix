@@ -47,7 +47,7 @@
       let
         org = "a2sensor";
         repo = "sensor-denormalizer";
-        version = "0.0.5";
+        version = "0.0.6";
         pname = "${org}-${repo}";
         pkgs = import nixos { inherit system; };
         description = "A Python denormalizer for a2sensor/sensor-denormalizer";
@@ -82,7 +82,6 @@
             projectDir = ./.;
             pyprojectTemplateFile = ./pyprojecttoml.template;
             pyprojectTemplate = pkgs.substituteAll {
-              apscheduler = python.pkgs.apscheduler.version;
               authors = builtins.concatStringsSep ","
                 (map (item: ''"${item}"'') maintainers);
               desc = description;
@@ -92,6 +91,7 @@
               pythonedaSharedPythonedaBanner =
                 pythoneda-shared-pythoneda-banner.version;
               src = pyprojectTemplateFile;
+              toml = python.pkgs.toml.version;
             };
             bannerTemplateFile = ./templates/banner.py.template;
             bannerTemplate = pkgs.substituteAll {
@@ -128,8 +128,8 @@
 
             nativeBuildInputs = with python.pkgs; [ pip pkgs.jq poetry-core ];
             propagatedBuildInputs = with python.pkgs; [
-              apscheduler
               pythoneda-shared-pythoneda-banner
+              toml
             ];
 
             pythonImportsCheck = [ pythonpackage ];

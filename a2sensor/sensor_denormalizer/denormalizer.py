@@ -18,13 +18,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-from apscheduler.schedulers.background import BackgroundScheduler
 import argparse
 from datetime import datetime
 import json
 import logging
 import os
 import threading
+import time
+import toml
 from typing import Dict, List
 
 
@@ -41,22 +42,35 @@ class Denormalizer:
         - a2sensor.sensor_collect.Server: To generate measure files for each sensor.
     """
 
-    def __init__(self, storageFolder: str, refreshInterval:int, sensorsFile: str):
+    def __init__(self, storageFolder: str, refreshInterval:int, outputFile: str, configFile: str):
         """
         Creates a new Denormalizer instance.
         :param storageFolder: The folder to store measures.
         :type storageFolder: str
         :param refreshInterval: The interval in minutes after which the output file gets refreshed.
         :type refreshInterval: int
-        :param sensorsFile: The global sensors.json file.
-        :type sensorsFile: str
+        :param outputFile: The output sensors.json file.
+        :type outputFile: str
+        :param configFile: The configuration file.
+        :type configFile: str
         """
         super().__init__()
+        self._sensors = {}
         self._storage_folder = storageFolder
         self._refresh_interval = refreshInterval
-        self._sensors_file = sensorsFile
+        self._output_file = outputFile
+        self._config_file = configFile
+        self._exit_event = threading.Event()
+        self.configure()
 
-        self._scheduler = self.init_scheduler(self._refresh_interval)
+    @property
+    def sensors(self) -> Dict:
+        """
+        Retrieves the configuration of the sensors.
+        :return: Such settings.
+        :rtype: Dict
+        """
+        return self._sensors
 
     @property
     def storage_folder(self):
@@ -77,34 +91,43 @@ class Denormalizer:
         return self._refresh_interval
 
     @property
-    def sensors_file(self):
+    def output_file(self):
         """
-        Retrieves the sensors.json file.
+        Retrieves the output file.
         :return: Such value.
         :rtype: str
         """
-        return self._sensors_file
+        return self._output_file
 
     @property
-    def scheduler(self):
+    def config_file(self):
         """
-        Retrieves the scheduler.
-        :return: Such instance.
-        :rtype: apscheduler.schedulers.background.BackgroundScheduler
+        Retrieves the config file.
+        :return: Such value.
+        :rtype: str
         """
-        return self._scheduler
+        return self._config_file
 
-    def init_scheduler(self, refreshInterval: int):
+    @property
+    def exit_event(self):
         """
-        Initializes the scheduler.
-        :param refreshInterval: The interval in minutes after which the output file gets refreshed.
-        :type refreshInterval: int
-        :return: The background scheduler.
-        :rtype: apscheduler.schedulers.background.BackgroundScheduler
+        Retrieves the exit event.
+        :return: Such event.
+        :rtype: threading.Event
         """
-        result = BackgroundScheduler()
-        result.add_job(self.refresh_output_file, "interval", minutes=refreshInterval)
-        return result
+        return self._exit_event
+
+    def configure(self):
+        """
+        Reads the settings from the configuration file.
+        """
+        config = toml.load(self.config_file)
+
+        index = 0
+        for sensor, attributes in config.items():
+            attributes["index"] = index
+            index = index + 1
+            self.sensors[sensor] = attributes
 
     def list_sensors(self) -> List:
         """
@@ -134,8 +157,13 @@ class Denormalizer:
         :rtype: str
         """
         directory = os.path.join(self.storage_folder, sensorId)
-        files = [os.path.join(directory, f) for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
-        return max(files, key=os.path.basename)
+        if os.path.exists(directory):
+            files = [ os.path.join(directory, f) for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) ]
+            result = max(files, key=os.path.basename)
+        else:
+            result = None
+
+        return result
 
     def latest_measure(self, sensorId: str) -> Dict:
         """
@@ -147,8 +175,17 @@ class Denormalizer:
         """
         result = {}
         measure_file = self.latest_measure_file(sensorId)
-        with open(measure_file, 'r') as file:
-            result = json.load(file)
+        if measure_file:
+            with open(measure_file, "r") as file:
+                result = json.load(file)
+        else:
+            result['id'] = sensorId
+            result['name'] = self.sensors[sensorId]['name']
+            value = {}
+            value['status'] = 'unknown'
+            value['timestamp'] = self.format_date(datetime.now())
+            result['value'] = value
+
         return result
 
     def save_output_file(self, data: Dict):
@@ -159,49 +196,63 @@ class Denormalizer:
         :param data: The measure.
         :type data: Dict
         """
-        with open(self.sensors_file, "w") as file:
+        with open(self.output_file, "w") as file:
             json.dump(data, file)
+
+    def format_date(self, date) -> str:
+        """
+        Retrieves the timestamp of the current time.
+        :param date: The date.
+        :type date: datetime.datetime
+        :return: Such timestamp.
+        :rtype: str
+        """
+        from .logging_config import LoggingConfig
+        return date.strftime(LoggingConfig.instance().date_format)
 
     def refresh_output_file(self):
         """
         Refreshes the output file.
         """
         sensors_data = []
-        some_data = False
-        for sensorId in self.list_sensors():
+        sensors_refreshed = 0
+        now = datetime.now()
+        timestamp = self.format_date(now)
+
+        for sensorId in self.sensors:
             data = {}
-            some_data = True
-            data['id'] = sensorId
-            measure = self.latest_measure(sensorId)
-            name = measure.get('name', None)
-            value = measure.get('value', {})
-            status = value.get('status', None)
-            last_modified = value.get('timestamp', None)
-            if name is not None:
-                data['name'] = name
-                del measure['name']
-            if status is not None and last_modified is not None:
-                data['value'] = value
-                del measure['value']
+            data["id"] = sensorId
+            data["name"] = self.sensors[sensorId]["name"]
+            if self.sensors[sensorId].get("pin", -1) == -1:
+                data["value"] = {"status": "unknown", "timestamp": timestamp}
             else:
-                data['value'] = self.latest_measure(sensorId)
+                sensors_refreshed = sensors_refreshed + 1
+                measure = self.latest_measure(sensorId)
+                value = measure.get("value", {})
+                status = value.get("status", None)
+                last_modified = value.get("timestamp", None)
+                if status is not None and last_modified is not None:
+                    data["value"] = value
+                    del measure["value"]
+                else:
+                    data["value"] = measure
             sensors_data.append(data)
 
-        if some_data:
+        if sensors_refreshed > 0:
             self.save_output_file(sensors_data)
-            print(f'Refreshed {self.sensors_file} at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            logging.getLogger("a2sensor").info(
+                f'Refreshed {sensors_refreshed} sensors in {self.output_file} at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+            )
 
     def run(self):
-        self.refresh_output_file()
-        self.scheduler.start()
-        stop_event = threading.Event()
-
         try:
-            stop_event.wait()
+            while not self.exit_event.is_set():
+                self.refresh_output_file()
+                time.sleep(self.refresh_interval)
         except KeyboardInterrupt:
-            logging.getLogger("a2sensor").warning("Shutting down gracefully...")
-        finally:
-            self.scheduler.shutdown()
+            logging.getLogger("a2sensor").warning("Exiting")
+            self.exit_event.set()
+
 
 def parse_cli():
     """
@@ -210,11 +261,20 @@ def parse_cli():
     :rtype: a2sensor.sensor_denormalizer.Denormalizer
     """
     parser = argparse.ArgumentParser(description="Runs A2Sensor Sensor-Denormalizer")
-    parser.add_argument('-d', '--data-folder', required=True, help='The data folder used by A2Sensor Sensor-Collect')
-    parser.add_argument('-r', '--refresh-interval', required=False, default=1, help='The refresh interval, in minutes')
-    parser.add_argument('-o', '--output-file', required=True, help='The output file')
+    parser.add_argument(
+        "-d",
+        "--data-folder",
+        required=True,
+        help="The data folder used by A2Sensor Sensor-Collect",
+    )
+    parser.add_argument('-r', '--refresh-interval', required=False, default=1, help='The refresh interval, in seconds')
+    parser.add_argument("-o", "--output-file", required=True, help="The output file")
+    parser.add_argument(
+        "-c", "--config-file", required=True, help="The sensors.toml config file"
+    )
     args, unknown_args = parser.parse_known_args()
-    return Denormalizer(args.data_folder, int(args.refresh_interval), args.output_file)
+    return Denormalizer(args.data_folder, int(args.refresh_interval), args.output_file, args.config_file)
+
 
 if __name__ == "__main__":
     denormalizer = parse_cli()
